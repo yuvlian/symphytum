@@ -1,0 +1,21 @@
+# build output
+build/
+*.pdb
+*.lib
+*.obj
+*.exp
+*.ilk
+
+# python
+__pycache__/
+*.pyc
+
+# editor etc.
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+refs/
