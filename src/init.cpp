@@ -4,6 +4,8 @@
 #include "il2cpp.hpp"
 #include "log.hpp"
 #include "patches/request.hpp"
+#include "patches/ssl.hpp"
+#include "patches/crypto.hpp"
 #include <windows.h>
 
 namespace symphytum {
@@ -88,8 +90,20 @@ bool init_all() {
         il2cpp::thread_attach(d);
     }
 
-    // Install request redirection patch
-    symphytum::patches::install_request();
+    // Install patches if enabled
+    if (symphytum::config::g.enable_patches) {
+        if (symphytum::config::g.redirect_game_requests || symphytum::config::g.redirect_asset_requests) {
+            symphytum::patches::install_request();
+        }
+        if (symphytum::config::g.disable_cert_pinning || symphytum::config::g.use_custom_root_cert) {
+            symphytum::patches::install_ssl();
+        }
+        if (symphytum::config::g.disable_encryption) {
+            symphytum::patches::install_crypto();
+        }
+    } else {
+        SYM_LOG("init", "patches are globally disabled by config");
+    }
 
     SYM_LOG("init", "all patches installed");
     return true;

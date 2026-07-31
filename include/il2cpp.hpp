@@ -21,6 +21,7 @@ using Il2CppField    = void;   // FieldInfo*
 using Il2CppType     = void;
 using Il2CppObject   = void;
 using Il2CppString   = void;
+using Il2CppArray    = void;
 using Il2CppThread   = void;
 using Il2CppException= void;
 
@@ -58,6 +59,7 @@ bool            class_is_enum(Il2CppClass* klass);
 bool            class_is_valuetype(Il2CppClass* klass);
 bool            class_is_interface(Il2CppClass* klass);
 Il2CppMethod*   class_get_methods(Il2CppClass* klass, void** iter);
+Il2CppClass*    class_get_nested_types(Il2CppClass* klass, void** iter);
 Il2CppMethod*   class_get_method_from_name(Il2CppClass* klass, const char* name, int args_count);
 Il2CppField*    class_get_fields(Il2CppClass* klass, void** iter);
 const char*     field_get_name(Il2CppField* field);
@@ -83,6 +85,7 @@ void            runtime_class_init(Il2CppClass* klass);
 void*           object_new(Il2CppClass* klass);
 Il2CppClass*    object_get_class(Il2CppObject* obj);
 Il2CppString*   string_new(const char* utf8);
+Il2CppArray*    array_new(Il2CppClass* element_class, uintptr_t length);
 int32_t         string_length(Il2CppString* s);
 const uint16_t* string_chars(Il2CppString* s);
 

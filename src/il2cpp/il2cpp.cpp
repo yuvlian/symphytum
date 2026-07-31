@@ -61,6 +61,7 @@ bool init() {
     (void)fn("il2cpp_class_is_valuetype");
     (void)fn("il2cpp_class_is_interface");
     (void)fn("il2cpp_class_get_methods");
+    (void)fn("il2cpp_class_get_nested_types");
     (void)fn("il2cpp_class_get_method_from_name");
     (void)fn("il2cpp_class_get_fields");
     (void)fn("il2cpp_field_get_name");
@@ -82,6 +83,7 @@ bool init() {
     (void)fn("il2cpp_object_new");
     (void)fn("il2cpp_string_chars");
     (void)fn("il2cpp_string_length");
+    (void)fn("il2cpp_array_new");
     (void)fn("il2cpp_thread_attach");
     SYM_LOG("il2cpp", "bridge initialized");
     return true;
@@ -154,6 +156,10 @@ bool class_is_interface(Il2CppClass* klass) {
 Il2CppMethod* class_get_methods(Il2CppClass* klass, void** iter) {
     using Sig = Il2CppMethod* (*)(Il2CppClass*, void**);
     return fn_t<Sig>("il2cpp_class_get_methods")(klass, iter);
+}
+Il2CppClass* class_get_nested_types(Il2CppClass* klass, void** iter) {
+    using Sig = Il2CppClass* (*)(Il2CppClass*, void**);
+    return fn_t<Sig>("il2cpp_class_get_nested_types")(klass, iter);
 }
 Il2CppMethod* class_get_method_from_name(Il2CppClass* klass, const char* name, int args_count) {
     using Sig = Il2CppMethod* (*)(Il2CppClass*, const char*, int);
@@ -247,6 +253,11 @@ Il2CppClass* object_get_class(Il2CppObject* obj) {
 Il2CppString* string_new(const char* utf8) {
     using Sig = Il2CppString* (*)(const char*);
     return fn_t<Sig>("il2cpp_string_new")(utf8);
+}
+Il2CppArray* array_new(Il2CppClass* element_class, uintptr_t length) {
+    using Sig = Il2CppArray* (*)(Il2CppClass*, uintptr_t);
+    auto p = fn_t<Sig>("il2cpp_array_new");
+    return p ? p(element_class, length) : nullptr;
 }
 int32_t string_length(Il2CppString* s) {
     using Sig = int32_t (*)(Il2CppString*);

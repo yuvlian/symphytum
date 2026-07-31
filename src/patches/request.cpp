@@ -81,17 +81,25 @@ void hook_set_RequestUri(il2cpp::Il2CppObject* self, il2cpp::Il2CppObject* uri_o
                 std::string full_url = il2cpp::string_to_utf8(uri_str);
                 SYM_LOG("request", "Original URL: {}", full_url);
 
-                std::string target_server = narrow(symphytum::config::g.server);
-                if (full_url.find("asset") != std::string::npos) {
-                    target_server = narrow(symphytum::config::g.asset_server);
+                bool is_asset = (full_url.find("asset") != std::string::npos);
+                std::string new_url = full_url;
+
+                if (is_asset) {
+                    if (symphytum::config::g.redirect_asset_requests) {
+                        new_url = url_replace_host_scheme(full_url, narrow(symphytum::config::g.asset_server));
+                    }
+                } else {
+                    if (symphytum::config::g.redirect_game_requests) {
+                        new_url = url_replace_host_scheme(full_url, narrow(symphytum::config::g.game_server));
+                    }
                 }
 
-                std::string new_url = url_replace_host_scheme(full_url, target_server);
-                SYM_LOG("request", "Rewritten URL: {}", new_url);
-
-                il2cpp::Il2CppObject* new_uri_obj = create_uri(new_url);
-                if (new_uri_obj) {
-                    uri_obj = new_uri_obj;
+                if (new_url != full_url) {
+                    SYM_LOG("request", "Rewritten URL: {}", new_url);
+                    il2cpp::Il2CppObject* new_uri_obj = create_uri(new_url);
+                    if (new_uri_obj) {
+                        uri_obj = new_uri_obj;
+                    }
                 }
             }
         }

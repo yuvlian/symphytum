@@ -34,7 +34,9 @@ src\config.cpp ^
 src\hook.cpp ^
 src\il2cpp\il2cpp_names.cpp ^
 src\il2cpp\il2cpp.cpp ^
-src\patches\request.cpp
+src\patches\request.cpp ^
+src\patches\ssl.cpp ^
+src\patches\crypto.cpp
 %ZIG% c++ %OPT% -shared %SRC% -lkernel32 -luser32 -lole32 -ladvapi32 -o build\symphytum.dll
 if errorlevel 1 ( echo DLL BUILD FAILED & exit /b 1 )
 echo built build\symphytum.dll

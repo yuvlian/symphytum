@@ -12,8 +12,15 @@
 namespace symphytum::config {
 
 struct Config {
-    std::wstring server;          // redirect target
+    bool enable_patches = true;
+    std::wstring game_server;     // redirect target for game-related urls
+    bool redirect_game_requests = true;
     std::wstring asset_server;    // redirect target for asset-related urls
+    bool redirect_asset_requests = true;
+    bool disable_encryption = false;
+    bool disable_cert_pinning = true;
+    std::wstring custom_root_cert; // PEM string
+    bool use_custom_root_cert = false;
     int log_level = 1;
 };
 
