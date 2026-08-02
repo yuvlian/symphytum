@@ -8,7 +8,7 @@ a fork of https://github.com/yuvlian/myosotis for holodori PS https://github.com
 
 2. **ssl** - intercepts `Api.GetSSLRootCertificates` and `NativeHttpHandlerCore.Initialize` (`SkipCertificateVerification`) to bypass SSL certificate pinning.
 
-3. **crypto** - bypasses custom gRPC payload encryption and wrapper headers by hooking `DefaultMarshallerFactory.Encrypt`/`Decrypt` and its nested `Header` struct methods, enabling communication using raw/unencrypted Protobuf.
+3. **crypto** - bypasses custom gRPC payload encryption and wrapper headers by hooking `DefaultMarshallerFactory.Encrypt`/`Decrypt` and its nested `Header` struct methods, enabling communication using raw/unencrypted Protobuf. As of right now, this doesnt fully work. i recommend just reimplementing the encryption serverside, you can check in https://github.com/yuvlian/symphytum-server/blob/main/rpc/src/quali_crypt.rs for reference
 
 ## building
 
