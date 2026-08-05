@@ -65,6 +65,59 @@ size_t modrm_len(const uint8_t* p) {
     return len;
 }
 
+// If the instruction at `p` uses RIP-relative addressing, return the offset of
+// the disp32 within the instruction, so the trampoline can rebase it. Returns
+// -1 otherwise. Mirrors the ModRM walk in modrm_len().
+static int modrm_rip_disp_offset(const uint8_t* m) {
+    uint8_t mod = m[0] >> 6;
+    uint8_t rm = m[0] & 7;
+    if (mod != 0) return -1;  // mod 1/2 use a base register, mod 3 is register
+    if (rm == 5) return 1;    // [rip + disp32]
+    if (rm == 4) {            // SIB: [base + index*scale + disp]
+        uint8_t sib = m[1];
+        if ((sib & 7) == 5) return 2;  // base=rbp with mod=0 => disp32 follows SIB
+    }
+    return -1;
+}
+
+static int rip_rel_disp_offset(const uint8_t* p) {
+    if (!p) return -1;
+    // Skip legacy prefixes.
+    size_t i = 0;
+    for (;;) {
+        uint8_t b = p[i];
+        if (b == 0x26 || b == 0x2E || b == 0x36 || b == 0x3E ||
+            b == 0x64 || b == 0x65 || b == 0x66 || b == 0x67 ||
+            b == 0xF0 || b == 0xF2 || b == 0xF3) {
+            i++;
+        } else break;
+    }
+    if (p[i] >= 0x40 && p[i] <= 0x4F) i++;  // REX
+    uint8_t op = p[i];
+    int modrm_off = -1;
+    if (op == 0x0F) {
+        uint8_t op2 = p[i + 1];
+        bool has_modrm = !(op2 == 0x05 || op2 == 0x0B || op2 == 0x0E || op2 == 0x77 ||
+                           (op2 >= 0x80 && op2 <= 0x8F) || (op2 >= 0xC8 && op2 <= 0xCF));
+        if (has_modrm) modrm_off = static_cast<int>(i) + 2;
+    } else if (op <= 0x3D) {
+        if (op == 0x06 || op == 0x07 || op == 0x0E || op == 0x16 || op == 0x17 ||
+            op == 0x1E || op == 0x1F || op == 0x27 || op == 0x2F || op == 0x37 || op == 0x3F)
+            return -1;  // invalid in 64-bit mode
+        uint8_t low = op & 7;
+        if (low < 4) modrm_off = static_cast<int>(i) + 1;  // group with ModRM
+    } else if (op == 0x63 || (op >= 0x84 && op <= 0x8B) || op == 0x8D || op == 0x8F ||
+               op == 0x69 || op == 0x6B || op == 0x80 || op == 0x81 || op == 0x83 ||
+               op == 0xC0 || op == 0xC1 || op == 0xC6 || op == 0xC7 ||
+               (op >= 0xD0 && op <= 0xD3) || (op >= 0xD8 && op <= 0xDF) ||
+               op == 0xF6 || op == 0xF7 || op == 0xFE || op == 0xFF) {
+        modrm_off = static_cast<int>(i) + 1;
+    }
+    if (modrm_off < 0) return -1;
+    int disp = modrm_rip_disp_offset(p + modrm_off);
+    return disp < 0 ? -1 : modrm_off + disp;
+}
+
 size_t insn_len(const uint8_t* p) {
     if (!p) return 0;
     // Skip legacy prefixes.
@@ -201,22 +254,66 @@ size_t insn_len(const uint8_t* p) {
 
 // Allocate a page of executable memory for trampolines. We keep a single
 // page and bump-allocate trampolines from it.
+//
+// The page is placed within ±2GB of GameAssembly.dll so that RIP-relative
+// disp32 operands in displaced prologues can be rebased to reach the module
+// (see install_inline). VirtualAlloc allocates *at* the requested address or
+// fails, so we walk a few candidate addresses around the module.
 uint8_t* g_trampoline_page = nullptr;
 size_t g_trampoline_offset = 0;
 uint8_t* alloc_trampoline(size_t size) {
     if (!g_trampoline_page) {
-        g_trampoline_page = static_cast<uint8_t*>(
-            VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+        HMODULE ga = GetModuleHandleW(L"GameAssembly.dll");
+        uintptr_t base = ga ? reinterpret_cast<uintptr_t>(ga) : 0;
+        uintptr_t hints[] = {
+            base ? base - 0x10000000u : 0,  // 256 MB below the module
+            base ? base - 0x08000000u : 0,  // 128 MB below
+            base ? base + 0x20000000u : 0,  // 512 MB above
+            base ? base - 0x20000000u : 0,  // 512 MB below
+            0,                              // no hint (last resort)
+        };
+        for (uintptr_t h : hints) {
+            void* p = VirtualAlloc(reinterpret_cast<LPVOID>(h), 4096,
+                                   MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            if (p) {
+                g_trampoline_page = static_cast<uint8_t*>(p);
+                break;
+            }
+        }
         if (!g_trampoline_page) {
             SYM_LOG("hook", "trampoline VirtualAlloc failed: {}", GetLastError());
             return nullptr;
         }
+        SYM_LOG_DEBUG("hook", "trampoline page at {} (module {})",
+                      static_cast<void*>(g_trampoline_page), reinterpret_cast<void*>(base));
         g_trampoline_offset = 0;
     }
     if (g_trampoline_offset + size > 4096) return nullptr;
     uint8_t* p = g_trampoline_page + g_trampoline_offset;
     g_trampoline_offset += size;
     return p;
+}
+
+// True if the displaced prologue captures rsp into a register or writes rsp.
+// Such prologues cannot be relocated: the trampoline executes them with the
+// trampoline's own rsp, so the resumed code (e.g. IL2CPP's shrink-wrap
+// `mov rax, rsp; mov [rax+10h], rbx; ...`) dereferences the wrong stack.
+static bool prologue_captures_rsp(const uint8_t* p, size_t n) {
+    for (size_t i = 0; i + 2 < n; ++i) {
+        // REX.W prefix then opcode.
+        if (p[i] != 0x48) continue;
+        uint8_t op = p[i + 1];
+        uint8_t b2 = p[i + 2];
+        if (op == 0x8B && b2 == 0xC4) return true;      // mov rax, rsp
+        if (op == 0x89) {
+            if (b2 == 0xE0) return true;                // mov rax, rsp
+            if (b2 == 0xC4) return true;                // mov rsp, rax
+            if (b2 == 0xE4) return true;                // mov rsp, rsp (no-op, odd but rsp-write)
+        }
+        if (op == 0x8D && (b2 & 7) == 4 && i + 3 < n && (p[i + 3] & 7) == 4)
+            return true;  // lea reg, [rsp+disp] (ModRM rm=4 -> SIB, SIB base=4 -> rsp)
+    }
+    return false;
 }
 
 // Install an inline hook at the native code body. Overwrites methodPointer
@@ -254,6 +351,13 @@ void* install_inline(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr) {
                 copied, patch_size, static_cast<void*>(method));
         return old_method_ptr;
     }
+    if (prologue_captures_rsp(orig, copied)) {
+        // Relocating this prologue would break the function (see above).
+        // Don't inline-patch; fall back to methodPointer-only.
+        SYM_LOG("hook", "inline hook skipped (prologue captures rsp, un-relocatable): {}",
+                static_cast<void*>(method));
+        return old_method_ptr;
+    }
 
     // Trampoline: <copied bytes> + <12-byte abs jump to orig+copied>.
     size_t tramp_size = copied + 12;
@@ -263,6 +367,29 @@ void* install_inline(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr) {
         return old_method_ptr;
     }
     std::memcpy(tramp, orig, copied);
+    // Rebase RIP-relative displacements in the relocated prologue: the disp32
+    // is relative to the end of the instruction, and the instruction now sits
+    // in the trampoline. Without this, any `[rip+disp32]` in the displaced
+    // bytes reads from the wrong address (IL2CPP prologues commonly start
+    // with `movzx eax, [rip+<metadata-init-flag>]`, which would fault).
+    // Requires the trampoline to be within ±2GB of the module (alloc_trampoline
+    // parks the page there); if a displacement cannot be rebased, bail to the
+    // methodPointer-only fallback rather than leave a broken trampoline.
+    for (size_t off = 0; off < copied;) {
+        int disp_off = rip_rel_disp_offset(orig + off);
+        if (disp_off >= 0 && disp_off + 4 <= static_cast<int>(copied - off)) {
+            intptr_t delta = (orig + off) - (tramp + off);
+            if (delta < INT32_MIN || delta > INT32_MAX) {
+                SYM_LOG_DEBUG("hook", "rip-relative operand too far to rebase, skipping inline hook");
+                return old_method_ptr;
+            }
+            int32_t* disp = reinterpret_cast<int32_t*>(tramp + off + static_cast<size_t>(disp_off));
+            *disp += static_cast<int32_t>(delta);
+        }
+        size_t il = insn_len(orig + off);
+        if (il == 0) break;
+        off += il;
+    }
     tramp[copied + 0] = 0x48;
     tramp[copied + 1] = 0xB8;
     uintptr_t target = reinterpret_cast<uintptr_t>(orig) + copied;
@@ -301,6 +428,30 @@ void* install_inline(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr) {
 void uninstall(::symphytum::il2cpp::Il2CppMethod* method, void* original) {
     if (!method || !original) return;
     write_method_ptr(method, original);
+}
+
+void* install_jump(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr) {
+    if (!method || !new_ptr) return nullptr;
+    void* old = write_method_ptr(method, new_ptr);
+    if (!old) return nullptr;
+    auto* orig = static_cast<uint8_t*>(old);
+    // mov rax, imm64; jmp rax — absolute, no ±2GB constraint, and no
+    // instruction-boundary analysis needed (the patched bytes are dead; the
+    // original is never resumed through them).
+    uint8_t jump[12] = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};
+    std::memcpy(jump + 2, &new_ptr, 8);
+    DWORD old_prot = 0;
+    if (!VirtualProtect(orig, 12, PAGE_EXECUTE_READWRITE, &old_prot)) {
+        SYM_LOG("hook", "install_jump VirtualProtect failed: {}", GetLastError());
+        return old;
+    }
+    std::memcpy(orig, jump, 12);
+    DWORD dummy = 0;
+    VirtualProtect(orig, 12, old_prot, &dummy);
+    FlushInstructionCache(GetCurrentProcess(), orig, 12);
+    SYM_LOG_DEBUG("hook", "entry-jumped {} at {} -> {}", static_cast<void*>(method),
+                  old, new_ptr);
+    return old;
 }
 
 }  // namespace symphytum::hook

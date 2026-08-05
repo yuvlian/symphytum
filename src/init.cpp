@@ -6,6 +6,7 @@
 #include "patches/request.hpp"
 #include "patches/ssl.hpp"
 #include "patches/crypto.hpp"
+#include "patches/autoplay.hpp"
 #include <windows.h>
 
 namespace symphytum {
@@ -100,6 +101,9 @@ bool init_all() {
         }
         if (symphytum::config::g.disable_encryption) {
             symphytum::patches::install_crypto();
+        }
+        if (symphytum::config::g.force_autoplay) {
+            symphytum::patches::install_autoplay();
         }
     } else {
         SYM_LOG("init", "patches are globally disabled by config");

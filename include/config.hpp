@@ -21,6 +21,8 @@ struct Config {
     bool disable_cert_pinning = true;
     std::wstring custom_root_cert; // PEM string
     bool use_custom_root_cert = false;
+    bool force_autoplay = false;     // force the in-live autoplay engine on
+    bool fake_manual_result = true;  // remap Auto judges to PerfectPlus
     int log_level = 1;
 };
 

@@ -89,6 +89,10 @@ bool load() {
             L"disable_encryption=true\r\n"
             L"disable_cert_pinning=true\r\n"
             L"use_custom_root_cert=false\r\n"
+            L"; force the in-live autoplay judgement engine on even for normal runs\r\n"
+            L"force_autoplay=false\r\n"
+            L"; remap Auto judges to PerfectPlus so autoplay runs report like manual\r\n"
+            L"fake_manual_result=true\r\n"
             L"; PEM string. Use literal \\n or \\r\\n for multi-line certs\r\n"
             L"custom_root_cert=\r\n"
             L"; 0 = only error logs, 1 = error & info, 2 = error & info & debug\r\n"
@@ -111,6 +115,8 @@ bool load() {
     g.disable_cert_pinning    = read_ini_bool(ini.c_str(), L"symphytum", L"disable_cert_pinning", true);
     g.use_custom_root_cert    = read_ini_bool(ini.c_str(), L"symphytum", L"use_custom_root_cert", false);
     g.custom_root_cert        = replace_escaped_newlines(read_ini(ini.c_str(), L"symphytum", L"custom_root_cert", L""));
+    g.force_autoplay          = read_ini_bool(ini.c_str(), L"symphytum", L"force_autoplay", false);
+    g.fake_manual_result      = read_ini_bool(ini.c_str(), L"symphytum", L"fake_manual_result", false);
     g.log_level               = static_cast<int>(GetPrivateProfileIntW(L"symphytum", L"log_level", 1, ini.c_str()));
 
     SYM_LOG_OVERRIDE("config", "enable_patches={}", g.enable_patches);
@@ -122,6 +128,8 @@ bool load() {
     SYM_LOG_OVERRIDE("config", "disable_cert_pinning={}", g.disable_cert_pinning);
     SYM_LOG_OVERRIDE("config", "use_custom_root_cert={}", g.use_custom_root_cert);
     SYM_LOG_OVERRIDE("config", "custom_root_cert_len={}", g.custom_root_cert.size());
+    SYM_LOG_OVERRIDE("config", "force_autoplay={}", g.force_autoplay);
+    SYM_LOG_OVERRIDE("config", "fake_manual_result={}", g.fake_manual_result);
     return true;
 }
 

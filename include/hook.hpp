@@ -35,6 +35,12 @@ namespace symphytum::hook {
 // prefix-only and don't call the original.
 void* install_inline(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr);
 
+// Install a bare entry-point jump: overwrites methodPointer AND patches the
+// first 12 bytes of the native body with `mov rax, imm64; jmp rax`. No
+// trampoline, no prologue relocation, works on ANY prologue shape — use this
+// for hooks that never call the original (the displaced bytes are dead).
+void* install_jump(::symphytum::il2cpp::Il2CppMethod* method, void* new_ptr);
+
  // Uninstall (restore original). `original` is the value returned by install().
 
 }  // namespace symphytum::hook
