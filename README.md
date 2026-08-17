@@ -18,6 +18,8 @@ clone repo then just run `deps.ps1` and `build.ps1`. after that copy the `symphy
 
 for configuration, you can copy `Symphytum.json` too and modify as needed.
 
+you can also get prebuilt from https://github.com/yuvlian/symphytum/releases/
+
 ## packages
 
 | package | what it does |
