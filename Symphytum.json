@@ -1,0 +1,9 @@
+{
+	"log_level": 1,
+	"redirect_game_requests": true,
+	"redirect_asset_requests": false,
+	"disable_cert_pin": true,
+	"autoplay": false,
+	"game_server": "https://127.0.0.1:3000/",
+	"asset_server": "https://127.0.0.1:3000/"
+}

@@ -1,77 +1,31 @@
 # symphytum
 
-a fork of https://github.com/yuvlian/myosotis for holodori PS https://github.com/yuvlian/symphytum-server
+a simple "mod" for hololive Dreams that lets you play on private servers and full perfect any song, using https://github.com/yuvlian/il2cure
 
-## what r the patches
+## wyg?
 
-1. **request** - intercepts `HttpRequestMessage.set_RequestUri` to redirect game/asset requests to custom servers configured in `symphytum.ini`.
+- **private servers**: redirect traffic, disable cert pinning
+- **full perfect**: are you bad at video game? me too! this thing can play the game for you~
 
-2. **ssl** - intercepts `Api.GetSSLRootCertificates` and `NativeHttpHandlerCore.Initialize` (`SkipCertificateVerification`) to bypass SSL certificate pinning.
+## reqs
 
-3. **crypto** - bypasses custom gRPC payload encryption and wrapper headers by hooking `DefaultMarshallerFactory.Encrypt`/`Decrypt` and its nested `Header` struct methods, enabling communication using raw/unencrypted Protobuf. As of right now, this doesnt fully work. i recommend just reimplementing the encryption serverside, you can check in https://github.com/yuvlian/symphytum-server/blob/main/rpc/src/quali_crypt.rs for reference
+- odin https://github.com/odin-lang/Odin/releases
+- git, for installing il2cure (see `deps.ps1`)
 
-## building
+## quick start
 
-requires zig 0.17 or newer. prebuilt available: https://github.com/yuvlian/symphytum/releases
+clone repo then just run `deps.ps1` and `build.ps1`. after that copy the `symphytum.dll` to same folder as `game.exe`, then rename the dll to `umpdc.dll`.
 
-```bat
-build.bat            :: build everything
-build.bat dll        :: build symphytum.dll only
-```
+for configuration, you can copy `Symphytum.json` too and modify as needed.
 
-build output will be in `./build`
+## packages
 
-## usage
+| package | what it does |
+|---------|--------------|
+| `main.odin` | dll entry |
+| `cfg/` | json config |
+| `patches/` | patch source files |
 
-1. make sure .dll and .ini same dir
-2. configure config (.ini) as needed
-3. inject to the game
+## license
 
-## how le hooks work
-
-il2cpp's managed-to-managed calls use baked-in direct native call addresses
-
-the compiled caller jumps straight to the method's native body, never reading
-`MethodInfo->methodPointer`
-
-overwriting `methodPointer` alone only intercepts
-`runtime_invoke` based calls (reflection)
-
-we solve this with inline hooking. patch the native code body at `methodPointer` with a jump to our stub, so both direct managed calls and `runtime_invoke` paths are intercepted
-
-but, some hooks need to call the original after running, we build a trampoline
-
-two patch sizes are used:
-- 5-byte relative jump (`E9 rel32`) when possible,
-- 12-byte absolute jump (`mov rax, imm64; jmp rax`) otherwise.
-
-if the length decoder can't safely cover the patch size (unknown instruction before the boundary), the inline patch is skipped
-
-for property getters and constructors that are heavily optimized and folded via identical COMDAT folding (ICF) in the compiled dll, we hook the unique non-folded methods (such as the specific constructor or custom getters) to prevent ICF collisions from hijacking unrelated game subsystems
-
-## project structure
-
-```
-cpp/
-├── build/                  (gitignored) default build output dir
-├── include/
-│   └── patches/            header files for the patches
-├── src/
-│   ├── dllmain.cpp         dll entrypoint
-│   ├── init.cpp            dll patches initializer
-│   ├── log.cpp             file & console logger
-│   ├── config.cpp          symphytum.ini stuff
-│   ├── hook.cpp            inline hook helper with trampoline
-│   ├── il2cpp/
-│   │   ├── pe.cpp          PE parser
-│   │   ├── scan.cpp        byte-pattern CALL/LEA scanner
-│   │   ├── il2cpp_names.cpp canonical -> obfuscated resolver
-│   │   └── il2cpp.cpp      typed il2cpp C API bridge
-│   └── patches/
-│       ├── request.cpp     http redirect patch
-│       ├── ssl.cpp         cert pinning patch
-│       └── crypto.cpp      packet encryption patch
-├── build.bat               build script
-├── symphytum.ini           example symphytum.ini config
-└── .gitignore              self explanatory
-```
+MIT
