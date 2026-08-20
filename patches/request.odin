@@ -3,8 +3,8 @@ package patches
 import "base:runtime"
 import "core:log"
 import "core:strings"
-import "shared:il2cure/il2cpp"
-import "shared:il2cure/unity"
+import "shared:il2cure/2eff70d/il2cpp"
+import "shared:il2cure/2eff70d/unity"
 import "../cfg"
 
 request_trampoline: rawptr

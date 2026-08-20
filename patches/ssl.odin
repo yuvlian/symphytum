@@ -2,7 +2,7 @@ package patches
 
 import "base:runtime"
 import "core:log"
-import "shared:il2cure/il2cpp"
+import "shared:il2cure/2eff70d/il2cpp"
 import "../cfg"
 
 ssl_init_trampoline: rawptr

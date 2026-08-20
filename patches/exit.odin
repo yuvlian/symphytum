@@ -1,7 +1,7 @@
 package patches
 
 import "core:log"
-import "shared:il2cure/hook"
+import "shared:il2cure/2eff70d/hook"
 
 install_no_exit :: proc() {
 	_, ok := hook.hook_iat_all("KERNEL32.dll", "ExitProcess", rawptr(ep_stub))

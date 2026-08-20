@@ -2,9 +2,9 @@ package patches
 
 import "base:runtime"
 import "core:log"
-import "shared:il2cure/hook"
-import "shared:il2cure/il2cpp"
-import "shared:il2cure/scan"
+import "shared:il2cure/2eff70d/hook"
+import "shared:il2cure/2eff70d/il2cpp"
+import "shared:il2cure/2eff70d/scan"
 import "../cfg"
 
 JUDGE_AUTO         :: 100 // LiveNoteJudgementType.Auto
