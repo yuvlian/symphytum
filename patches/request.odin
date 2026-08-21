@@ -3,8 +3,8 @@ package patches
 import "base:runtime"
 import "core:log"
 import "core:strings"
-import "shared:il2cure/2eff70d/il2cpp"
-import "shared:il2cure/2eff70d/unity"
+import "shared:il2cure/e9c2da9/il2cpp"
+import "shared:il2cure/e9c2da9/unity"
 import "../cfg"
 
 request_trampoline: rawptr
@@ -13,7 +13,7 @@ host_trampoline: rawptr
 // make HttpRequestMessage.set_RequestUri use our host
 install_uri_redirect :: proc() -> bool {
 	if !cfg.cfg.redirect_game_requests && !cfg.cfg.redirect_asset_requests {
-		log.debug("redirect disabled. install_uri_redirect skipped.")
+		log.debug("redirect disabled. install skipped.")
 		return false
 	}
 
@@ -23,20 +23,20 @@ install_uri_redirect :: proc() -> bool {
 	)
 
 	if msg_val, ok := msg.?; ok {
-		log.errorf("%v. install_uri_redirect failed.", msg_val)
+		log.errorf("%v. install failed.", msg_val)
 		delete(msg_val)
 		return false
 	}
 
 	request_trampoline = tr
-	log.info("install_uri_redirect finished.")
+	log.info("install finished.")
 	return true
 }
 
 // override GetHost in grpc channel
 install_host_override :: proc() -> bool {
 	if !cfg.cfg.redirect_game_requests {
-		log.debug("host override disabled. install_host_override skipped.")
+		log.debug("host override disabled. install skipped.")
 		return false
 	}
 
@@ -46,13 +46,13 @@ install_host_override :: proc() -> bool {
 	)
 
 	if msg_val, ok := msg.?; ok {
-		log.errorf("%v. install_host_override failed.", msg_val)
+		log.errorf("%v. install failed.", msg_val)
 		delete(msg_val)
 		return false
 	}
 
 	host_trampoline = tr
-	log.info("install_host_override finished.")
+	log.info("install finished.")
 	return true
 }
 
@@ -65,7 +65,7 @@ host_detour :: proc "c" (
 
 	if cfg.cfg.redirect_game_requests {
 		if host := origin_of(cfg.cfg.game_server); host != "" {
-			log.infof("server host override: GetHost() -> %v", host)
+			log.infof("set GetHost() -> %v", host)
 			return il2cpp.string_new(host)
 		}
 	}
@@ -133,8 +133,8 @@ request_detour :: proc "c" (
 	rewritten := rewrite_url(url, cfg.cfg)
 
 	if rewritten == "" {
-		log.infof(
-			"request url %s (no redirect: %v/%v)",
+		log.debugf(
+			"%s (no redirect: %v/%v)",
 			url,
 			cfg.cfg.redirect_game_requests,
 			is_asset_request(url),
@@ -143,9 +143,10 @@ request_detour :: proc "c" (
 		return
 	}
 
-	log.infof("request redirect %s -> %s", url, rewritten)
+	log.debugf("%s -> %s", url, rewritten)
 
 	ns := il2cpp.string_new(rewritten)
+	// this is slow cuz doesnt use table cache but whatever
 	new_uri, _ := unity.invoke_named(
 		0,
 		"System.Uri",

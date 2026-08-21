@@ -2,14 +2,14 @@ package patches
 
 import "base:runtime"
 import "core:log"
-import "shared:il2cure/2eff70d/il2cpp"
+import "shared:il2cure/e9c2da9/il2cpp"
 import "../cfg"
 
 ssl_init_trampoline: rawptr
 
 install_cert_unpin :: proc() -> bool {
 	if !cfg.cfg.disable_cert_pin {
-		log.debug("cert pinning disabled. install_cert_unpin skipped.")
+		log.debug("cert pinning disabled. install skipped.")
 		return false
 	}
 
@@ -19,13 +19,13 @@ install_cert_unpin :: proc() -> bool {
 	)
 
 	if msg_val, ok := msg.?; ok {
-		log.errorf("%v. install_cert_unpin failed.", msg_val)
+		log.errorf("%v. install failed.", msg_val)
 		delete(msg_val)
 		return false
 	}
 
 	ssl_init_trampoline = tr
-	log.info("install_cert_unpin finished.")
+	log.info("install finished.")
 	return true
 }
 
@@ -61,12 +61,13 @@ ssl_init_detour :: proc "c" (
 			)
 
 			if exc != 0 {
-				log.warn("ssl: exception setting SkipCertificateVerification")
+				// can probably just print the exception msg?
+				log.error("exception setting SkipCertificateVerification")
 			} else {
-				log.info("ssl: set SkipCertificateVerification to true")
+				log.info("set SkipCertificateVerification to true")
 			}
 		} else {
-			log.error("ssl: set_SkipCertificateVerification not found on settings")
+			log.error("set_SkipCertificateVerification not found on settings")
 		}
 	}
 

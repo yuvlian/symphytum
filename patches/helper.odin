@@ -2,8 +2,8 @@ package patches
 
 import "core:fmt"
 import "core:log"
-import "shared:il2cure/2eff70d/hook"
-import "shared:il2cure/2eff70d/il2cpp"
+import "shared:il2cure/e9c2da9/hook"
+import "shared:il2cure/e9c2da9/il2cpp"
 
 // set in main
 detour_logger: log.Logger

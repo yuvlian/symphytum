@@ -2,9 +2,9 @@ package patches
 
 import "base:runtime"
 import "core:log"
-import "shared:il2cure/2eff70d/hook"
-import "shared:il2cure/2eff70d/il2cpp"
-import "shared:il2cure/2eff70d/scan"
+import "shared:il2cure/e9c2da9/hook"
+import "shared:il2cure/e9c2da9/il2cpp"
+import "shared:il2cure/e9c2da9/scan"
 import "../cfg"
 
 JUDGE_AUTO         :: 100 // LiveNoteJudgementType.Auto
@@ -17,13 +17,13 @@ update_combo_2:   il2cpp.Il2CppMethod // UpdateCombo(NoteType, JudgeType)
 // rewrite Auto(100) to PerfectPlus(6)
 install_force_fp :: proc() -> bool {
 	if !cfg.cfg.autoplay {
-		log.debug("autoplay disabled. install_force_fp skipped.")
+		log.debug("autoplay disabled. install skipped.")
 		return false
 	}
 
 	msc, cok := il2cpp.find_class("Vision.Common.MusicScoreController")
 	if !cok {
-		log.error("MusicScoreController not found. install_force_fp failed.")
+		log.error("MusicScoreController not found. install failed.")
 		return false
 	}
 
@@ -34,13 +34,13 @@ install_force_fp :: proc() -> bool {
 
 	ccd, mok := il2cpp.class_method(msc, "CreateChartData", 1)
 	if !mok {
-		log.error("CreateChartData not found. install_force_fp failed.")
+		log.error("CreateChartData not found. install failed.")
 		return false
 	}
 
 	body := il2cpp.method_pointer(ccd)
 	if body == nil {
-		log.error("CreateChartData has no method pointer. install_force_fp failed.")
+		log.error("CreateChartData has no method pointer. install failed.")
 		return false
 	}
 
@@ -49,14 +49,14 @@ install_force_fp :: proc() -> bool {
 	jz, jok := scan.find_gate_jz(body_b, 0x4000, is_auto_off)
 	if !jok {
 		log.errorf(
-			"CreateChartData _isAuto gate not found at 0x%x. install_force_fp failed.",
+			"CreateChartData _isAuto gate not found at 0x%x. install failed.",
 			is_auto_off,
 		)
 		return false
 	}
 
 	if !hook.nop_rel32(body_b, jz) {
-		log.errorf("could not NOP the bake gate at +0x%x. install_force_fp failed.", jz)
+		log.errorf("could not NOP the bake gate at +0x%x. install failed.", jz)
 		return false
 	}
 
@@ -74,24 +74,24 @@ install_force_fp :: proc() -> bool {
 			)
 		} else {
 			log.errorf(
-				"couldnt rewrite bake judge immediate at +0x%x. install_force_fp failed.",
+				"couldnt rewrite bake judge immediate at +0x%x. install failed.",
 				imm,
 			)
 			return false
 		}
 	} else {
-		log.error("Auto(100) bake immediate not found. install_force_fp failed.")
+		log.error("Auto(100) bake immediate not found. install failed.")
 		return false
 	}
 
-	log.info("install_force_fp finished.")
+	log.info("install finished.")
 	return true
 }
 
 // make LiveGameLogicControllerBase.IsAutoPlay() always true
 install_force_auto :: proc() -> bool {
 	if !cfg.cfg.autoplay {
-		log.debug("autoplay disabled. install_force_auto skipped.")
+		log.debug("autoplay disabled. install skipped.")
 		return false
 	}
 
@@ -99,9 +99,7 @@ install_force_auto :: proc() -> bool {
 		"Vision.Rhythm.LiveGameLogicControllerBase::IsAutoPlay", 0)
 
 	if !find_ok {
-		log.error(
-			"LiveGameLogicControllerBase::IsAutoPlay not found. install_force_auto failed.",
-		)
+		log.error("LiveGameLogicControllerBase::IsAutoPlay not found. install failed.")
 		return false
 	}
 
@@ -109,11 +107,11 @@ install_force_auto :: proc() -> bool {
 		rawptr(is_autoplay_detour), il2cpp.default_offsets())
 
 	if trampoline == nil && og == nil {
-		log.error("could not hook IsAutoPlay. install_force_auto failed.")
+		log.error("could not hook IsAutoPlay. install failed.")
 		return false
 	}
 
-	log.info("install_force_auto finished.")
+	log.info("install finished.")
 	return true
 }
 
@@ -126,13 +124,13 @@ is_autoplay_detour :: proc "c" (this: il2cpp.Il2CppObject, method: il2cpp.Il2Cpp
 // so combo counts w/ autoplay
 install_force_count :: proc() -> bool {
 	if !cfg.cfg.autoplay {
-		log.debug("autoplay disabled. install_force_count skipped.")
+		log.debug("autoplay disabled. install skipped.")
 		return false
 	}
 
 	ncls, cok := il2cpp.find_class("Vision.Common.LiveNoteDataBase")
 	if !cok {
-		log.error("LiveNoteDataBase not found. install_force_count failed.")
+		log.error("LiveNoteDataBase not found. install failed.")
 		return false
 	}
 
@@ -143,19 +141,19 @@ install_force_count :: proc() -> bool {
 
 	lbc, lok := il2cpp.find_class("Vision.Common.LiveLogicControllerBase")
 	if !lok {
-		log.error("LiveLogicControllerBase not found. install_force_count failed.")
+		log.error("LiveLogicControllerBase not found. install failed.")
 		return false
 	}
 
 	update_combo_2, _ = il2cpp.class_method(lbc, "UpdateCombo", 2)
 	if update_combo_2 == 0 {
-		log.error("UpdateCombo(NoteType,JudgeType) not found. install_force_count failed.")
+		log.error("UpdateCombo(NoteType,JudgeType) not found. install failed.")
 		return false
 	}
 
 	m1, m1ok := il2cpp.class_method(lbc, "UpdateCombo", 1)
 	if !m1ok {
-		log.error("UpdateCombo(LiveNoteDataBase) not found. install_force_count failed.")
+		log.error("UpdateCombo(LiveNoteDataBase) not found. install failed.")
 		return false
 	}
 
@@ -164,11 +162,11 @@ install_force_count :: proc() -> bool {
 
 	if tramp == nil && orig == nil {
 		log.error(
-			"could not hook UpdateCombo(LiveNoteDataBase). install_force_count failed.")
+			"could not hook UpdateCombo(LiveNoteDataBase). install failed.")
 		return false
 	}
 
-	log.infof("install_force_count finished.")
+	log.infof("install finished.")
 	return true
 }
 

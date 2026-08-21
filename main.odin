@@ -2,11 +2,11 @@ package main
 
 import "base:runtime"
 import "core:log"
-import "core:os"
 import "core:thread"
-import "shared:il2cure/2eff70d/console"
-import "shared:il2cure/2eff70d/extra"
-import "shared:il2cure/2eff70d/il2cpp"
+import "shared:il2cure/e9c2da9/console"
+import "shared:il2cure/e9c2da9/extra"
+import "shared:il2cure/e9c2da9/hook"
+import "shared:il2cure/e9c2da9/il2cpp"
 import "cfg"
 import "patches"
 
@@ -20,28 +20,13 @@ main :: proc () {
 mod_thread :: proc () {
 	cfg.load()
 
-	console_logger := log.create_console_logger()
-	defer log.destroy_console_logger(console_logger)
+	loggers := console.create_loggers(cfg.LOG_FILE_NAME)
+	defer console.destroy_loggers(loggers)
 
-	logger := console_logger
-	file_logger: log.Logger
-	have_file := false
-
-	if f, ferr := os.open(cfg.LOG_FILE_NAME, {.Write, .Append, .Create}); ferr == nil {
-		file_logger = log.create_file_logger(f)
-		logger = log.create_multi_logger(console_logger, file_logger)
-		have_file = true
-	}
-
-	defer if have_file {
-		log.destroy_file_logger(file_logger)
-		log.destroy_multi_logger(logger)
-	}
-
-	context.logger = logger
+	context.logger = console.choose_logger(loggers)
 	context.logger.lowest_level = cfg.get_log_level()
 
-	patches.detour_logger = logger
+	patches.detour_logger = context.logger
 
 	if err := console.init("Symphytum"); err != nil {
 		log.warnf("console attach failed: %v (file log still active)", err)
@@ -52,19 +37,29 @@ mod_thread :: proc () {
 
 	if !il2cpp.init() {
 		log.fatal("il2cpp.init failed")
-		extra.hang()
+		extra.exit_if_ctrl_c()
 		return
 	}
-	defer il2cpp.shutdown()
 
-	applied: int
-	applied += 1 if patches.install_uri_redirect() else 0
-	applied += 1 if patches.install_host_override() else 0
-	applied += 1 if patches.install_cert_unpin() else 0
-	applied += 1 if patches.install_force_fp() else 0
-	applied += 1 if patches.install_force_auto() else 0
-	applied += 1 if patches.install_force_count() else 0
+	installers := []proc() -> bool {
+		patches.install_uri_redirect,
+		patches.install_host_override,
+		patches.install_cert_unpin,
+		patches.install_force_fp,
+		patches.install_force_auto,
+		patches.install_force_count,
+	}
+
+	applied := 0
+	for install in installers {
+		if install() {
+			applied += 1
+		}
+	}
 
 	log.infof("%v patches active", applied)
-	extra.hang()
+
+	extra.exit_if_ctrl_c()
+	hook.uninstall_all()
+	il2cpp.shutdown()
 }

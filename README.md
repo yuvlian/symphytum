@@ -1,6 +1,6 @@
 # symphytum
 
-a simple "mod" for hololive Dreams that lets you play on private servers and full perfect any song, using https://github.com/yuvlian/il2cure
+a simple "mod" for hololive Dreams that lets you play on private servers and full perfect any song, made with https://github.com/yuvlian/il2cure :D
 
 ## wyg?
 
@@ -10,7 +10,7 @@ a simple "mod" for hololive Dreams that lets you play on private servers and ful
 ## reqs
 
 - odin https://github.com/odin-lang/Odin/releases
-- git, for installing il2cure (see `deps.ps1`)
+- git https://git-scm.com/install for installing il2cure (see `deps.ps1`)
 
 ## quick start
 
