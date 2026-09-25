@@ -1,3 +1,7 @@
+# ARCHIVAL NOTE
+
+I am no longer maintaining this project, but the last time I used it (23 September 2026) everything still works.
+
 # symphytum
 
 a simple "mod" for hololive Dreams that lets you play on private servers and full perfect any song, made with https://github.com/yuvlian/il2cure :D
